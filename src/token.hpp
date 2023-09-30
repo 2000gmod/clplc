@@ -42,7 +42,7 @@ enum class TokenT : int {
     CONTINUE,
     RETURN,
     VAR,
-    FN,
+    FUNC,
     METHOD,
     OPERATOR,
 

@@ -31,31 +31,22 @@ struct ParameterT {
     Token name;
 };
 
-enum class FunctionClass {
-    FPROC,
-    FMETHOD,
-    FOPERATOR
-};
-
 struct FuncDeclStmt : public Stmt {
     TypeSP type;
     Token name;
     std::vector<ParameterT> params;
     StmtSP body;
-    FunctionClass fnclass;
 
     FuncDeclStmt(
         const TypeSP &type, 
         const Token &name, 
         const std::vector<ParameterT> &params, 
-        const StmtSP &body, 
-        const FunctionClass fnclass)
+        const StmtSP &body)
         :
             type(type),
             name(name),
             params(params),
-            body(body),
-            fnclass(fnclass)
+            body(body)
     { }
 };
 

@@ -20,7 +20,7 @@ Scanner::Scanner(const std::string &src) {
         {"return", TokenT::RETURN},
 
         {"var", TokenT::VAR},
-        {"fn", TokenT::FN},
+        {"func", TokenT::FUNC},
         {"method", TokenT::METHOD},
         {"operator", TokenT::OPERATOR},
         {"import", TokenT::IMPORT},
