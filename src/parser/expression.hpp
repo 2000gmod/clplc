@@ -52,10 +52,17 @@ struct GroupExpr : public Expr {
 typedef std::shared_ptr<GroupExpr> GroupExprSP;
 
 struct AssignExpr : public Expr {
-    Token name;
+    ExprSP target;
     ExprSP value;
 
-    AssignExpr(const Token &name, const ExprSP &value) : name(name), value(value) { }
+    AssignExpr(const ExprSP &target, const ExprSP &value) : target(target), value(value) { }
 };
 
 typedef std::shared_ptr<AssignExpr> AssignExprSP;
+
+struct CallExpr : public Expr {
+    ExprSP callee;
+    std::vector<ExprSP> args;
+
+    CallExpr(const ExprSP &callee, const std::vector<ExprSP> &args) : callee(callee), args(args) { }
+};

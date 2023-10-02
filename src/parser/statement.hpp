@@ -12,7 +12,7 @@ typedef std::shared_ptr<Stmt> StmtSP;
 
 struct BlockStmt : public Stmt {
     std::vector<StmtSP> statements;
-
+    BlockStmt() { }
     BlockStmt(const std::vector<StmtSP> &statements) : statements(statements) { }
 };
 
@@ -20,7 +20,7 @@ typedef std::shared_ptr<BlockStmt> BlockStmtSP;
 
 struct ExprStmt : public Stmt {
     ExprSP expr;
-
+    ExprStmt() { }
     ExprStmt(const ExprSP &expr) : expr(expr) { }
 };
 
@@ -56,7 +56,7 @@ struct VarDeclStmt : public Stmt {
     TypeSP type;
     Token name;
     ExprSP value;
-
+    VarDeclStmt() { }
     VarDeclStmt(const TypeSP &type, const Token &name, const ExprSP &value) : type(type), name(name), value(value) { }
 };
 
@@ -64,7 +64,7 @@ typedef std::shared_ptr<VarDeclStmt> VarDeclStmtSP;
 
 struct ReturnStmt : public Stmt {
     ExprSP value;
-
+    ReturnStmt() { }
     ReturnStmt(const ExprSP &value) : value(value) { }
 };
 
@@ -74,6 +74,7 @@ struct IfStmt : public Stmt {
     ExprSP condition;
     StmtSP ifBody, elseBody;
 
+    IfStmt() { }
     IfStmt(const ExprSP &condition, const StmtSP &ifBody, const StmtSP &elseBody) 
         :
             condition(condition), 
@@ -88,6 +89,7 @@ struct WhileStmt : public Stmt {
     ExprSP condition;
     StmtSP body;
 
+    WhileStmt() { }
     WhileStmt(const ExprSP &condition, const StmtSP &body) : condition(condition), body(body) { }
 };
 
@@ -98,6 +100,7 @@ struct ForStmt : public Stmt {
     ExprSP condition, increment;
     StmtSP body;
 
+    ForStmt() { }
     ForStmt(const StmtSP &init, const ExprSP &condition, const ExprSP &increment, const StmtSP &body) 
         :
             init(init),
