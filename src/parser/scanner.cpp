@@ -1,5 +1,7 @@
 #include "scanner.hpp"
 
+using namespace clpl;
+
 Scanner::Scanner(const std::string &src) {
     this->src = src;
 

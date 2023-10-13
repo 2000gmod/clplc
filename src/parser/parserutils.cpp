@@ -1,5 +1,7 @@
 #include "parser.hpp"
 
+using namespace clpl;
+
 bool Parser::isAtEnd() {
     return peek().type == TokenT::EOFILE;
 }
@@ -15,8 +17,9 @@ Token &Parser::consume(const TokenT tokt, const std::string &msg) {
 }
 
 ParseError Parser::error(const Token &tok, const std::string &msg) {
-    auto message = "(at token: " + tok.toString() + ") ";
-    message = "ERROR: (at line " + std::to_string(tok.line) + ")" + message + msg; 
+    auto message = "(at token " + tok.toString() + ")\033[0m\n";
+    message = "\033[1;31mError: (at line " + std::to_string(tok.line) + ") " + message;
+    message += "\t\033[1m" + msg + "\033[0m"; 
     return {message};
 }
 

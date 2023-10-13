@@ -1,9 +1,10 @@
 #include "parser.hpp"
 
 #include "scanner.hpp"
-#include "util.hpp"
 
 #include <iostream>
+
+using namespace clpl;
 
 Parser::Parser(const std::string &src) {
     tokens = Scanner(src).tokenize();
@@ -11,19 +12,27 @@ Parser::Parser(const std::string &src) {
     nTypes = {
         {"void", std::make_shared<NamedType>("void")},
         {"i32", std::make_shared<NamedType>("i32")},
-        {"double", std::make_shared<NamedType>("double")},
+        {"f64", std::make_shared<NamedType>("f64")},
     };
 }
 
 SList Parser::parse() {
     SList statements;
-    try {
-        while (!isAtEnd()) {
+    while (!isAtEnd()) {
+        try {
             statements.push_back(topLevelStatement());
         }
+        catch (ParseError &e) {
+            hadErrors = true;
+            numErrors++;
+            std::cerr << e.msg << "\n";
+            break;
+        }
     }
-    catch (ParseError &e) { 
-        std::cerr << e.msg << "\n";
+    if (hadErrors) {
+        std::cerr << "\033[1;31mHad " << numErrors << " unrecoverable error(s) while parsing this file.\033[0m\n";
+        std::exit(EXIT_FAILURE);
+        return SList();
     }
     return statements;
 }
@@ -74,7 +83,7 @@ StmtSP Parser::functionDecl() {
 
 StmtSP Parser::variableDecl() {
     auto name = consume(TokenT::IDENTIFIER, "Expected variable identifier.");
-    consume(TokenT::COLON, "Expected ':' after variable identifier.");
+    consume(TokenT::COLON, "Expected type declaration.");
     auto vartype = parseType();
 
     ExprSP value = nullptr;
@@ -84,6 +93,7 @@ StmtSP Parser::variableDecl() {
 }
 
 StmtSP Parser::statement() {
+    if (!isInsideScopeOf<FuncDeclStmt>()) throw error(peek(), "Illegal global scope statement.");
     if (match(TokenT::FOR)) return forStatement();
     if (match(TokenT::IF)) return ifStatement();
     if (match(TokenT::RETURN)) return returnStatement();
@@ -337,13 +347,28 @@ ExprSP Parser::primaryExpr() {
 */
 
 TypeSP Parser::parseType() {
-    return parseNamedType();
+    if (check(TokenT::IDENTIFIER)) {
+        auto type = parseNamedType();
+        start:
+        while (match(TokenT::LEFT_SQR)) {
+            consume(TokenT::RIGHT_SQR, "Expected ']'.");
+            type = std::make_shared<IndexedPointerType>(type);
+        }
+        while (match(TokenT::STAR)) {
+            type = std::make_shared<ReferencePointerType>(type);
+        }
+
+        if (check(TokenT::LEFT_SQR) || check(TokenT::STAR)) goto start;
+        return type;
+    }
+    else throw error(peek(), "Unexpected type sequence.");
 }
+
 
 TypeSP Parser::parseNamedType() {
     auto name = consume(TokenT::IDENTIFIER, "Expected type identifier.");
     if (!nTypes.contains(name.identName)) {
-        throw error(peek(), "Unknown type: '" + name.identName + "'.");
+        throw error(previous(), "Unknown type: '" + name.identName + "'.");
     }
     return std::make_shared<NamedType>(name);
 }
