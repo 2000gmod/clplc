@@ -11,9 +11,21 @@ Parser::Parser(const std::string &src) {
 
     nTypes = {
         {"void", std::make_shared<NamedType>("void")},
+        {"bool", std::make_shared<NamedType>("bool")},
+        {"i8", std::make_shared<NamedType>("i8")},
+        {"i16", std::make_shared<NamedType>("i16")},
         {"i32", std::make_shared<NamedType>("i32")},
+        {"i64", std::make_shared<NamedType>("i64")},
+        {"u8", std::make_shared<NamedType>("u8")},
+        {"u16", std::make_shared<NamedType>("u16")},
+        {"u32", std::make_shared<NamedType>("u32")},
+        {"u64", std::make_shared<NamedType>("u64")},
+        {"f32", std::make_shared<NamedType>("f32")},
         {"f64", std::make_shared<NamedType>("f64")},
+        {"ptr", std::make_shared<NamedType>("ptr")},
     };
+
+    identTypes.emplace_back();
 }
 
 SList Parser::parse() {
@@ -24,15 +36,13 @@ SList Parser::parse() {
         }
         catch (ParseError &e) {
             hadErrors = true;
-            numErrors++;
             std::cerr << e.msg << "\n";
             break;
         }
     }
     if (hadErrors) {
-        std::cerr << "\033[1;31mHad " << numErrors << " unrecoverable error(s) while parsing this file.\033[0m\n";
+        std::cerr << "\033[1;31mHad unrecoverable errors while parsing this file.\033[0m\n";
         std::exit(EXIT_FAILURE);
-        return SList();
     }
     return statements;
 }
@@ -54,6 +64,7 @@ StmtSP Parser::functionDecl() {
     consume(TokenT::LEFT_PAREN, "Expected '(' after function identifier.");
 
     std::vector<ParameterT> params;
+    std::vector<TypeSP> paramTypes;
     if (!check(TokenT::RIGHT_PAREN)) do {
         if (params.size() >= MAX_ARGS) {
             throw error(peek(), "Exceeded max parameter count.");
@@ -61,20 +72,28 @@ StmtSP Parser::functionDecl() {
         auto pname = consume(TokenT::IDENTIFIER, "Expected parameter identifier.");
         consume(TokenT::COLON, "Expected ':' after parameter identifier.");
         auto ptype = parseType();
+
         ParameterT param = {ptype, pname};
         params.push_back(param);
+        paramTypes.push_back(ptype);
     } while (match(TokenT::COMMA));
 
     consume(TokenT::RIGHT_PAREN, "Expected ')' after function parameter list.");
     auto rtype = nTypes["void"];
-    if (match(TokenT::COLON)) {
+    if (match(TokenT::ARROW)) {
         rtype = parseType();
     }
+
+    if (!exists(name.identName)) {
+        auto ftype = std::make_shared<FunctionReferenceType>(rtype, paramTypes);
+        identTypes[scopeCount].insert({name.identName, ftype});
+    }
+    else throw error(name, "Function redefinition.");
 
     StmtSP fbody = nullptr;
     if (match(TokenT::LEFT_CUR)) {
         scopeStack.push_back(std::make_shared<FuncDeclStmt>(rtype, name, params, nullptr));
-        fbody = blockStatement();
+        fbody = blockStatement(params);
         scopeStack.pop_back();
     }
     else consume(TokenT::SEMICOLON, "Expected ';' after external (bodyless) function declaration.");
@@ -89,6 +108,12 @@ StmtSP Parser::variableDecl() {
     ExprSP value = nullptr;
     if (match(TokenT::ASSIGN)) value = expression();
     consume(TokenT::SEMICOLON, "Expected ';' after variable declaration.");
+    if (!exists(name.identName)) {
+        identTypes[scopeCount].insert({name.identName, vartype});
+    }
+    else {
+        throw error(name, "Variable already defined.");
+    }
     return std::make_shared<VarDeclStmt>(vartype, name, value);
 }
 
@@ -172,14 +197,28 @@ StmtSP Parser::whileStatement() {
     return std::make_shared<WhileStmt>(condition, body);
 }
 
-StmtSP Parser::blockStatement() {
+StmtSP Parser::blockStatement(const std::vector<ParameterT> &params) {
     scopeStack.push_back(std::make_shared<BlockStmt>());
+    identTypes.emplace_back();
+    scopeCount++;
+
+    if (!params.empty()) for (auto &i: params) {
+        if (!exists(i.name.identName)) {
+            identTypes[scopeCount].insert({i.name.identName, i.type});
+        } else {
+            throw error(i.name, "Name already defined.");
+        }
+    }
+
+
     SList body;
     while (!check(TokenT::RIGHT_CUR) && !isAtEnd()) {
         body.push_back(topLevelStatement());
     }
     consume(TokenT::RIGHT_CUR, "Expected '}' after a block statement.");
     scopeStack.pop_back();
+    identTypes.pop_back();
+    scopeCount--;
     return std::make_shared<BlockStmt>(body);
 }
 
@@ -325,17 +364,40 @@ ExprSP Parser::callExpr(ExprSP callee) {
 
 ExprSP Parser::primaryExpr() {
     if (match({TokenT::BOOL_LIT, TokenT::INT_LIT, TokenT::DOUBLE_LIT, TokenT::STRING_LIT})) {
-        return std::make_shared<LiteralExpr>(previous());
+        auto expr = std::make_shared<LiteralExpr>(previous());
+        TypeSP etype;
+        switch(previous().type) {
+            case TokenT::BOOL_LIT:
+                etype = nTypes["bool"];
+                break;
+            case TokenT::INT_LIT:
+                etype = nTypes["i32"];
+                break;
+            case TokenT::DOUBLE_LIT:
+                etype = nTypes["f64"];
+                break;
+            case TokenT::STRING_LIT:
+                etype = std::make_shared<IndexedPointerType>(nTypes["u8"]);
+                break;
+            default:
+                break;
+        }
+        expr->type = etype;
+        return expr;
     }
 
     if (match(TokenT::IDENTIFIER)) {
-        return std::make_shared<IdentifierExpr>(previous());
+        auto expr = std::make_shared<IdentifierExpr>(previous());
+        expr->type = getTypeFromID(previous().identName);
+        return expr;
     }
 
     if (match(TokenT::LEFT_PAREN)) {
         auto expr = expression();
         consume(TokenT::RIGHT_PAREN, "Expected ')'.");
-        return std::make_shared<GroupExpr>(expr);
+        auto out = std::make_shared<GroupExpr>(expr);
+        out->type = expr->type;
+        return out;
     }
     throw error(peek(), "Expected expression.");
 }
@@ -349,17 +411,26 @@ ExprSP Parser::primaryExpr() {
 TypeSP Parser::parseType() {
     if (check(TokenT::IDENTIFIER)) {
         auto type = parseNamedType();
-        start:
-        while (match(TokenT::LEFT_SQR)) {
-            consume(TokenT::RIGHT_SQR, "Expected ']'.");
-            type = std::make_shared<IndexedPointerType>(type);
+        return parsePointerType(type);
+    }
+    else if (match(TokenT::FUNC)) {
+        consume(TokenT::LEFT_PAREN, "Expected '('.");
+        std::vector<TypeSP> argTypes;
+        if (!check(TokenT::RIGHT_PAREN)) {
+            do {
+                argTypes.push_back(parseType());
+            } while (match(TokenT::COMMA));
         }
-        while (match(TokenT::STAR)) {
-            type = std::make_shared<ReferencePointerType>(type);
-        }
-
-        if (check(TokenT::LEFT_SQR) || check(TokenT::STAR)) goto start;
-        return type;
+        consume(TokenT::ARROW, "Expected '->'.");
+        auto rtype = parseType();
+        consume(TokenT::RIGHT_PAREN, "Expected ')' after argument type list.");
+        TypeSP ref = std::make_shared<FunctionReferenceType>(rtype, argTypes);
+        return parsePointerType(ref);
+    }
+    else if (match(TokenT::LEFT_PAREN)) {
+        auto type = parseType();
+        consume(TokenT::RIGHT_PAREN, "Expected closing ')' after type.");
+        return parsePointerType(type);
     }
     else throw error(peek(), "Unexpected type sequence.");
 }
@@ -370,5 +441,20 @@ TypeSP Parser::parseNamedType() {
     if (!nTypes.contains(name.identName)) {
         throw error(previous(), "Unknown type: '" + name.identName + "'.");
     }
-    return std::make_shared<NamedType>(name);
+    return nTypes[name.identName];
+}
+
+TypeSP Parser::parsePointerType(const TypeSP &type) {
+    TypeSP out = type;
+    do {
+        while (match(TokenT::LEFT_SQR)) {
+            consume(TokenT::RIGHT_SQR, "Expected ']'.");
+            out = std::make_shared<IndexedPointerType>(out);
+        }
+        while (match(TokenT::STAR)) {
+            out = std::make_shared<ReferencePointerType>(out);
+        }
+
+    } while (check(TokenT::LEFT_SQR) || check(TokenT::STAR));
+    return out;
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
 #include "token.hpp"
 
@@ -9,6 +10,8 @@ namespace clpl {
         virtual ~Type() = default;
         virtual std::string toString() const = 0;
     };
+
+    bool operator ==(const Type &lhs, const Type &rhs);
 
     typedef std::shared_ptr<Type> TypeSP;
 
@@ -49,4 +52,14 @@ namespace clpl {
     };
 
     typedef std::shared_ptr<ReferencePointerType> ReferencePointerTypeSP;
+
+    struct FunctionReferenceType : public Type {
+        TypeSP returnType;
+        std::vector<TypeSP> argTypes;
+
+        FunctionReferenceType(const TypeSP &rt, const std::vector<TypeSP> &ats) : returnType(rt), argTypes(ats) { }
+        virtual std::string toString() const override;
+    };
+
+    typedef std::shared_ptr<FunctionReferenceType> FunctionReferenceTypeSP;
 }

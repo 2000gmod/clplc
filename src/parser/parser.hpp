@@ -10,9 +10,9 @@
 #define MAX_ARGS 16
 
 namespace clpl {
-    struct ParseError {
+struct ParseError : public std::exception {
         std::string msg;
-        ParseError(const std::string &msg) : msg(msg) { }
+        explicit ParseError(const std::string &msg) : msg(msg) { }
     };
 
     using SList = std::vector<StmtSP>;
@@ -20,15 +20,18 @@ namespace clpl {
     class Parser {
         private:
             bool hadErrors = false;
-            int numErrors = 0;
             std::vector<Token> tokens;
+
             SList scopeStack;
+            int scopeCount = 0;
+
             std::unordered_map<std::string, TypeSP> nTypes;
+            std::vector<std::unordered_map<std::string, TypeSP>> identTypes;
 
             int current = 0;
 
         public:
-            Parser(const std::string &src);
+            explicit Parser(const std::string &src);
             SList parse();
 
         private:
@@ -42,7 +45,7 @@ namespace clpl {
             StmtSP ifStatement();
             StmtSP returnStatement();
             StmtSP whileStatement();
-            StmtSP blockStatement();
+            StmtSP blockStatement(const std::vector<clpl::ParameterT> &params = {});
             StmtSP breakStatement();
             StmtSP continueStatement();
             StmtSP expressionStatement();
@@ -64,15 +67,16 @@ namespace clpl {
 
             TypeSP parseType();
             TypeSP parseNamedType();
+            TypeSP parsePointerType(const TypeSP &type);
             
             // UTILITY
 
             bool isAtEnd();
             Token &advance();
-            Token &consume(const TokenT tokt, const std::string &msg);
+            Token &consume(TokenT tokt, const std::string &msg);
             ParseError error(const Token &tok, const std::string &msg);
-            bool check(const TokenT tokt);
-            bool match(const TokenT tokt);
+            bool check(TokenT tokt);
+            bool match(TokenT tokt);
             bool match(const std::initializer_list<TokenT> &toks);
             Token &previous();
             Token &peek();
@@ -80,6 +84,9 @@ namespace clpl {
 
             template<class T>
             bool isInsideScopeOf();
+
+            bool exists(const std::string &name);
+            TypeSP getTypeFromID(const std::string &name);
     };
 
     template <class T>

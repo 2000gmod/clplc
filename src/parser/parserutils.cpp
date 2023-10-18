@@ -20,7 +20,7 @@ ParseError Parser::error(const Token &tok, const std::string &msg) {
     auto message = "(at token " + tok.toString() + ")\033[0m\n";
     message = "\033[1;31mError: (at line " + std::to_string(tok.line) + ") " + message;
     message += "\t\033[1m" + msg + "\033[0m"; 
-    return {message};
+    return ParseError(message);
 }
 
 bool Parser::check(const TokenT tokt) {
@@ -66,4 +66,18 @@ bool Parser::checkForm(const std::initializer_list<TokenT> &toklist) {
 
     current = prevCurrent;
     return true;
+}
+
+bool Parser::exists(const std::string &name) {
+    for (auto &map : identTypes) {
+        if (map.contains(name)) return true;
+    }
+    return false;
+}
+
+TypeSP Parser::getTypeFromID(const std::string &name) {
+    auto &map = identTypes[scopeCount];
+    if (map.contains(name)) return map[name];
+    
+    throw error(previous(), "Unknown identifier.");
 }

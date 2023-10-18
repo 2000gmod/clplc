@@ -49,6 +49,12 @@ namespace clpl {
                 params(params),
                 body(body)
         { }
+
+        TypeSP getFuncReferenceType() const {
+            std::vector<TypeSP> argTypes;
+            for (auto &i : params) argTypes.push_back(i.type);
+            return std::make_shared<FunctionReferenceType>(type, argTypes);
+        }
     };
 
     typedef std::shared_ptr<FuncDeclStmt> FuncDeclStmtSP;

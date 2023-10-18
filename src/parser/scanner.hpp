@@ -15,7 +15,7 @@ namespace clpl {
             std::string src;
 
         public:
-            Scanner(const std::string &src);
+            explicit Scanner(const std::string &src);
             std::vector<Token> tokenize();
 
         private:

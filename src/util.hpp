@@ -20,3 +20,9 @@ requires std::derived_from<Derived, Base>
 inline std::shared_ptr<Derived> downcast(const std::shared_ptr<Base> &ptr) {
     return std::dynamic_pointer_cast<Derived>(ptr);
 }
+
+template <class Base, class Derived>
+requires std::derived_from<Derived, Base>
+inline std::shared_ptr<Base> upcast(const std::shared_ptr<Derived> &ptr) {
+    return std::static_pointer_cast<Base>(ptr);
+}
