@@ -11,9 +11,5 @@ int main() {
         }
     )";
     clpl::Parser parser(test);
-    auto tree = parser.parse();
-    auto s = downcast<clpl::FuncDeclStmt>(tree[0]);
-    auto vard = downcast<clpl::VarDeclStmt>(downcast<clpl::BlockStmt>(s->body)->statements[0]);
-    std::cout << vard->type->toString() << "\n";
     return 0;
 }
