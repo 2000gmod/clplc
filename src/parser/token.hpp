@@ -72,7 +72,7 @@ namespace clpl {
         int line;
 
         Token();
-        Token(int line);
+        explicit Token(int line);
         Token(const Token &other);
 
         std::string toString() const;

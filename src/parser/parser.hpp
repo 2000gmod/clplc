@@ -1,5 +1,6 @@
 #pragma once
 
+#include <utility>
 #include <vector>
 
 #include "token.hpp"
@@ -12,7 +13,7 @@
 namespace clpl {
 struct ParseError : public std::exception {
         std::string msg;
-        explicit ParseError(const std::string &msg) : msg(msg) { }
+        explicit ParseError(std::string msg) : msg(std::move(msg)) { }
     };
 
     using SList = std::vector<StmtSP>;

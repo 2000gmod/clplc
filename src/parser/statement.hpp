@@ -13,16 +13,16 @@ namespace clpl {
 
     struct BlockStmt : public Stmt {
         std::vector<StmtSP> statements;
-        BlockStmt() { }
-        BlockStmt(const std::vector<StmtSP> &statements) : statements(statements) { }
+        BlockStmt() = default;
+        explicit BlockStmt(const std::vector<StmtSP> &statements) : statements(statements) { }
     };
 
     typedef std::shared_ptr<BlockStmt> BlockStmtSP;
 
     struct ExprStmt : public Stmt {
         ExprSP expr;
-        ExprStmt() { }
-        ExprStmt(const ExprSP &expr) : expr(expr) { }
+        ExprStmt() = default;
+        explicit ExprStmt(const ExprSP &expr) : expr(expr) { }
     };
 
     typedef std::shared_ptr<ExprStmt> ExprStmtSP;
@@ -39,15 +39,15 @@ namespace clpl {
         StmtSP body;
 
         FuncDeclStmt(
-            const TypeSP &type, 
+            TypeSP type,
             const Token &name, 
             const std::vector<ParameterT> &params, 
-            const StmtSP &body)
+            StmtSP body)
             :
-                type(type),
+                type(std::move(type)),
                 name(name),
                 params(params),
-                body(body)
+                body(std::move(body))
         { }
 
         TypeSP getFuncReferenceType() const {
@@ -63,16 +63,16 @@ namespace clpl {
         TypeSP type;
         Token name;
         ExprSP value;
-        VarDeclStmt() { }
-        VarDeclStmt(const TypeSP &type, const Token &name, const ExprSP &value) : type(type), name(name), value(value) { }
+        VarDeclStmt() = default;
+        VarDeclStmt(TypeSP type, const Token &name, ExprSP value) : type(std::move(type)), name(name), value(std::move(value)) { }
     };
 
     typedef std::shared_ptr<VarDeclStmt> VarDeclStmtSP;
 
     struct ReturnStmt : public Stmt {
         ExprSP value;
-        ReturnStmt() { }
-        ReturnStmt(const ExprSP &value) : value(value) { }
+        ReturnStmt() = default;
+        explicit ReturnStmt(ExprSP value) : value(std::move(value)) { }
     };
 
     typedef std::shared_ptr<ReturnStmt> ReturnStmtSP;
@@ -81,12 +81,12 @@ namespace clpl {
         ExprSP condition;
         StmtSP ifBody, elseBody;
 
-        IfStmt() { }
-        IfStmt(const ExprSP &condition, const StmtSP &ifBody, const StmtSP &elseBody) 
+        IfStmt() = default;
+        IfStmt(ExprSP condition, StmtSP ifBody, StmtSP elseBody)
             :
-                condition(condition), 
-                ifBody(ifBody), 
-                elseBody(elseBody) 
+                condition(std::move(condition)),
+                ifBody(std::move(ifBody)),
+                elseBody(std::move(elseBody))
         { }
     };
 
@@ -96,8 +96,8 @@ namespace clpl {
         ExprSP condition;
         StmtSP body;
 
-        WhileStmt() { }
-        WhileStmt(const ExprSP &condition, const StmtSP &body) : condition(condition), body(body) { }
+        WhileStmt() = default;
+        WhileStmt(ExprSP condition, StmtSP body) : condition(std::move(condition)), body(std::move(body)) { }
     };
 
     typedef std::shared_ptr<WhileStmt> WhileStmtSP;
@@ -107,13 +107,13 @@ namespace clpl {
         ExprSP condition, increment;
         StmtSP body;
 
-        ForStmt() { }
-        ForStmt(const StmtSP &init, const ExprSP &condition, const ExprSP &increment, const StmtSP &body) 
+        ForStmt() = default;
+        ForStmt(StmtSP init, ExprSP condition, ExprSP increment, StmtSP body)
             :
-                init(init),
-                condition(condition),
-                increment(increment),
-                body(body)
+                init(std::move(init)),
+                condition(std::move(condition)),
+                increment(std::move(increment)),
+                body(std::move(body))
         { }
     };
 

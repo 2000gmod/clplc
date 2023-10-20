@@ -1,5 +1,7 @@
 #pragma once
 
+#include <utility>
+
 #include "type.hpp"
 
 namespace clpl {
@@ -13,7 +15,7 @@ namespace clpl {
     struct LiteralExpr : public Expr {
         Token val;
 
-        LiteralExpr(const Token &val) : val(val) { }
+        explicit LiteralExpr(const Token &val) : val(val) { }
     };
 
     typedef std::shared_ptr<LiteralExpr> LiteralExprSP;
@@ -21,7 +23,7 @@ namespace clpl {
     struct IdentifierExpr : public Expr {
         Token ident;
 
-        IdentifierExpr(const Token &ident) : ident(ident) { }
+        explicit IdentifierExpr(const Token &ident) : ident(ident) { }
     };
 
     typedef std::shared_ptr<IdentifierExpr> IdentifierExprSP;
@@ -30,7 +32,7 @@ namespace clpl {
         ExprSP expr;
         TokenT op;
 
-        UnaryExpr(const ExprSP &expr, TokenT op) : expr(expr), op(op) { }
+        UnaryExpr(ExprSP expr, TokenT op) : expr(std::move(expr)), op(op) { }
     };
 
     typedef std::shared_ptr<UnaryExpr> UnaryExprSP;
@@ -39,7 +41,7 @@ namespace clpl {
         ExprSP left, right;
         TokenT op;
 
-        BinaryExpr(const ExprSP &left, const ExprSP &right, TokenT op) : left(left), right(right), op(op) { }
+        BinaryExpr(ExprSP left, ExprSP right, TokenT op) : left(std::move(left)), right(std::move(right)), op(op) { }
     };
 
     typedef std::shared_ptr<BinaryExpr> BinaryExprSP;
@@ -47,7 +49,7 @@ namespace clpl {
     struct GroupExpr : public Expr {
         ExprSP expr;
 
-        GroupExpr(const ExprSP &expr) : expr(expr) { }
+        explicit GroupExpr(ExprSP expr) : expr(std::move(expr)) { }
     };
 
     typedef std::shared_ptr<GroupExpr> GroupExprSP;
@@ -56,7 +58,7 @@ namespace clpl {
         ExprSP target;
         ExprSP value;
 
-        AssignExpr(const ExprSP &target, const ExprSP &value) : target(target), value(value) { }
+        AssignExpr(ExprSP target, ExprSP value) : target(std::move(target)), value(std::move(value)) { }
     };
 
     typedef std::shared_ptr<AssignExpr> AssignExprSP;
@@ -65,6 +67,6 @@ namespace clpl {
         ExprSP callee;
         std::vector<ExprSP> args;
 
-        CallExpr(const ExprSP &callee, const std::vector<ExprSP> &args) : callee(callee), args(args) { }
+        CallExpr(ExprSP callee, const std::vector<ExprSP> &args) : callee(std::move(callee)), args(args) { }
     };
 }

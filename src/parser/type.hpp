@@ -18,37 +18,37 @@ namespace clpl {
     struct NamedType : public Type {
         Token name;
 
-        NamedType(const Token &name) : name(name) { }
+        explicit NamedType(const Token &name) : name(name) { }
 
-        NamedType(const std::string &namestr) {
+        explicit NamedType(const std::string &namestr) {
             name.type = TokenT::IDENTIFIER;
             name.identName = namestr;
         }
 
-        virtual std::string toString() const override;
+        std::string toString() const override;
     };
 
     typedef std::shared_ptr<NamedType> NamedTypeSP;
 
     struct PointerType : public Type {
         TypeSP dataType;
-        virtual ~PointerType() = default;
+        ~PointerType() override = default;
         virtual std::string toString() const = 0;
-        PointerType(const TypeSP &data) : dataType(data) { }
+        explicit PointerType(const TypeSP &data) : dataType(data) { }
     };
 
     typedef std::shared_ptr<PointerType> PointerTypeSP;
 
     struct IndexedPointerType : public PointerType {
-        IndexedPointerType(const TypeSP &type) : PointerType(type) { }
-        virtual std::string toString() const override;
+        explicit IndexedPointerType(const TypeSP &type) : PointerType(type) { }
+        std::string toString() const override;
     };
 
     typedef std::shared_ptr<IndexedPointerType> IndexedPointerTypeSP;
 
     struct ReferencePointerType : public PointerType {
-        ReferencePointerType(const TypeSP &type) : PointerType(type) { }
-        virtual std::string toString() const override;
+        explicit ReferencePointerType(const TypeSP &type) : PointerType(type) { }
+        std::string toString() const override;
     };
 
     typedef std::shared_ptr<ReferencePointerType> ReferencePointerTypeSP;
@@ -57,8 +57,8 @@ namespace clpl {
         TypeSP returnType;
         std::vector<TypeSP> argTypes;
 
-        FunctionReferenceType(const TypeSP &rt, const std::vector<TypeSP> &ats) : returnType(rt), argTypes(ats) { }
-        virtual std::string toString() const override;
+        FunctionReferenceType(TypeSP rt, const std::vector<TypeSP> &ats) : returnType(std::move(rt)), argTypes(ats) { }
+        std::string toString() const override;
     };
 
     typedef std::shared_ptr<FunctionReferenceType> FunctionReferenceTypeSP;
