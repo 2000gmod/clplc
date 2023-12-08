@@ -368,16 +368,16 @@ ExprSP Parser::primaryExpr() {
         TypeSP etype;
         switch(previous().type) {
             case TokenT::BOOL_LIT:
-                etype = nTypes["bool"];
+                etype = nTypes.at("bool");
                 break;
             case TokenT::INT_LIT:
-                etype = nTypes["i32"];
+                etype = nTypes.at("i32");
                 break;
             case TokenT::DOUBLE_LIT:
-                etype = nTypes["f64"];
+                etype = nTypes.at("f64");
                 break;
             case TokenT::STRING_LIT:
-                etype = std::make_shared<IndexedPointerType>(nTypes["u8"]);
+                etype = std::make_shared<IndexedPointerType>(nTypes.at("u8"));
                 break;
             default:
                 break;
