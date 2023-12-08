@@ -13,14 +13,7 @@ namespace clpl {
             llvm::Module mod;
             llvm::IRBuilder<> builder;
 
-            llvm::BasicBlock *innermostExit = nullptr, *innermostCondition = nullptr;
-            //llvm::Function *currentFunc = nullptr;
-
-            std::unordered_map<std::string, llvm::Type*> typemap;
-            std::unordered_map<std::string, llvm::Value*> globals, localvars;
-            bool isOnGlobalScope = true;
-
-            llvm::Type *getType(const clpl::TypeSP &type);
+            llvm::BasicBlock *innermostLoop = nullptr;
 
         public:
             Compiler(const char *fname, const SList &statements);
@@ -40,13 +33,13 @@ namespace clpl {
             void compileBreak(const StmtSP &s);
             void compileContinue(const StmtSP &s);
 
-            llvm::Value *compileExpression(const ExprSP &e);
-            llvm::Value *compileLiteral(const ExprSP &e);
-            llvm::Value *compileIdent(const ExprSP &e);
-            llvm::Value *compileUnary(const ExprSP &e);
-            llvm::Value *compileBinary(const ExprSP &e);
-            llvm::Value *compileGroup(const ExprSP &e);
-            llvm::Value *compileAssign(const ExprSP &e);
-            llvm::Value *compileCall(const ExprSP &e);
+            void compileExpression(const ExprSP &e);
+            void compileLiteral(const ExprSP &e);
+            void compileIdent(const ExprSP &e);
+            void compileUnary(const ExprSP &e);
+            void compileBinary(const ExprSP &e);
+            void compileGroup(const ExprSP &e);
+            void compileAssign(const ExprSP &e);
+            void compileCall(const ExprSP &e);
     };
 }

@@ -34,7 +34,7 @@ std::vector<Token> Scanner::tokenize() {
         start = current;
         scanToken();
     }
-    tokens.emplace_back(line);
+    tokens.push_back(Token(line));
     return tokens;
 }
 
@@ -177,6 +177,7 @@ void Scanner::scanIdentifier() {
     while (isAlphaNumeric(peek())) advance();
 
     std::string text = src.substr(start, current - start);
+    TokenT type = TokenT::ERROR;
 
     if (keywords.count(text) == 0) {
         Token tok(line);
@@ -194,6 +195,8 @@ void Scanner::scanIdentifier() {
         addToken(tok);
         return;
     }
+
+    addToken(type);
 }
 
 void Scanner::scanNumber() {
@@ -214,6 +217,7 @@ void Scanner::scanNumber() {
     tok.type = TokenT::INT_LIT;
     tok.intValue = std::stoi(src.substr(start, current - start));
     addToken(tok);
+    return;
 }
 
 void Scanner::scanString() {
@@ -237,11 +241,11 @@ void Scanner::scanString() {
     addToken(tok);
 }
 
-std::string Scanner::formatEscapes(const std::string &seq) {
-    std::string res;
-    for (int i = 0; i < (int) seq.length(); i++) {
-        if (seq[i] == '\\' && i != (int) seq.length() - 1) {
-            switch (seq[i + 1]) {
+std::string Scanner::formatEscapes(const std::string &src) {
+    std::string res = "";
+    for (int i = 0; i < (int) src.length(); i++) {
+        if (src[i] == '\\' && i != (int) src.length() - 1) {
+            switch (src[i + 1]) {
                 case 'n':
                     res += "\n";
                     i += 1;
@@ -254,7 +258,7 @@ std::string Scanner::formatEscapes(const std::string &seq) {
                     break;
             }
         }
-        else res += seq[i];
+        else res += src[i];
     }
     return res;
 }

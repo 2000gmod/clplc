@@ -23,9 +23,9 @@ namespace clpl {
             bool match(char expected);
             char peek();
             char peekNext();
-            static bool isAlpha(char c);
-            static bool isDigit(char c);
-            static bool isAlphaNumeric(char c);
+            bool isAlpha(char c);
+            bool isDigit(char c);
+            bool isAlphaNumeric(char c);
             char advance();
             bool atEnd();
             void addToken(const Token &tok);
@@ -33,6 +33,6 @@ namespace clpl {
             void scanIdentifier();
             void scanNumber();
             void scanString();
-            static std::string formatEscapes(const std::string &seq);
+            std::string formatEscapes(const std::string &val);
     };
 }
