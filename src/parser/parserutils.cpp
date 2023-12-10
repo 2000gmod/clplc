@@ -76,8 +76,9 @@ bool Parser::exists(const std::string &name) {
 }
 
 TypeSP Parser::getTypeFromID(const std::string &name) {
-    auto &map = identTypes[scopeCount];
-    if (map.contains(name)) return map[name];
+    for (auto &map : identTypes) {
+        if (map.contains(name)) return map[name];
+    }
     
     throw error(previous(), "Unknown identifier.");
 }

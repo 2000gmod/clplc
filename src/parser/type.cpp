@@ -10,6 +10,12 @@ std::string NamedType::toString() const {
     return name.identName;
 }
 
+bool NamedType::isSigned() const {
+    auto n = toString();
+
+    return n == "i8" || n == "i16" || n == "i32" || n == "i64";
+}
+
 std::string IndexedPointerType::toString() const {
     return dataType->toString() + "[]";
 }

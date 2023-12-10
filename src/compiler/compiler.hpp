@@ -14,10 +14,12 @@ namespace clpl {
             llvm::IRBuilder<> builder;
 
             llvm::BasicBlock *innermostExit = nullptr, *innermostCondition = nullptr;
-            //llvm::Function *currentFunc = nullptr;
+            llvm::BasicBlock *returnBlock = nullptr;
+            llvm::Value *returnValue;
+            llvm::Function *parent = nullptr;
 
             std::unordered_map<std::string, llvm::Type*> typemap;
-            std::unordered_map<std::string, llvm::Value*> globals, localvars;
+            std::unordered_map<std::string, llvm::Value*> globals, localvars, arguments;
             bool isOnGlobalScope = true;
 
             llvm::Type *getType(const clpl::TypeSP &type);
@@ -40,9 +42,9 @@ namespace clpl {
             void compileBreak(const StmtSP &s);
             void compileContinue(const StmtSP &s);
 
-            llvm::Value *compileExpression(const ExprSP &e);
+            llvm::Value *compileExpression(const ExprSP &e, bool isLvalue = false);
             llvm::Value *compileLiteral(const ExprSP &e);
-            llvm::Value *compileIdent(const ExprSP &e);
+            llvm::Value *compileIdent(const ExprSP &e, bool isLvalue = false);
             llvm::Value *compileUnary(const ExprSP &e);
             llvm::Value *compileBinary(const ExprSP &e);
             llvm::Value *compileGroup(const ExprSP &e);

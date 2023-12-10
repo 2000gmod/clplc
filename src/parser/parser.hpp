@@ -30,6 +30,7 @@ struct ParseError : public std::exception {
             std::vector<std::unordered_map<std::string, TypeSP>> identTypes;
 
             int current = 0;
+            std::string source;
 
         public:
             explicit Parser(const std::string &src);

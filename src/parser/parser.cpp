@@ -7,6 +7,7 @@
 using namespace clpl;
 
 Parser::Parser(const std::string &src) {
+    source = src;
     tokens = Scanner(src).tokenize();
 
     nTypes = {
@@ -256,7 +257,9 @@ ExprSP Parser::assignment() {
         auto value = assignment();
 
         if (instanceof<IdentifierExpr>(expr)) {
-            return std::make_shared<AssignExpr>(expr, value);
+            expr = std::make_shared<AssignExpr>(expr, value);
+            expr->type = value->type;
+            return expr;
         }
         throw error(equals, "Invalid assignment target.");
     }
@@ -270,6 +273,7 @@ ExprSP Parser::orExpr() {
         auto op = previous().type;
         auto rhs = andExpr();
         expr = std::make_shared<BinaryExpr>(expr, rhs, op);
+        expr->type = nTypes.at("bool");
     }
     return expr;
 }
@@ -281,6 +285,7 @@ ExprSP Parser::andExpr() {
         auto op = previous().type;
         auto rhs = eqExpr();
         expr = std::make_shared<BinaryExpr>(expr, rhs, op);
+        expr->type = nTypes.at("bool");
     }
     return expr;
 }
@@ -291,7 +296,11 @@ ExprSP Parser::eqExpr() {
     while (match({TokenT::EQ, TokenT::NOT_EQ})) {
         auto op = previous().type;
         auto rhs = compExpr();
+        if (expr->type->toString() != rhs->type->toString()) {
+            throw error(peek(), "Types must be the same.");
+        }
         expr = std::make_shared<BinaryExpr>(expr, rhs, op);
+        expr->type = nTypes.at("bool");
     }
     return expr;
 }
@@ -302,7 +311,11 @@ ExprSP Parser::compExpr() {
     while (match({TokenT::GT, TokenT::LT, TokenT::GEQ, TokenT::LEQ})) {
         auto op = previous().type;
         auto rhs = addition();
+        if (expr->type->toString() != rhs->type->toString()) {
+            throw error(peek(), "Types must be the same.");
+        }
         expr = std::make_shared<BinaryExpr>(expr, rhs, op);
+        expr->type = rhs->type;
     }
     return expr;
 }
@@ -313,7 +326,12 @@ ExprSP Parser::addition() {
     while (match({TokenT::PLUS, TokenT::MINUS})) {
         auto op = previous().type;
         auto rhs = multiplication();
+
+        if (expr->type->toString() != rhs->type->toString()) {
+            throw error(peek(), "Types must be the same.");
+        }
         expr = std::make_shared<BinaryExpr>(expr, rhs, op);
+        expr->type = rhs->type;
     }
     return expr;
 }
@@ -324,7 +342,12 @@ ExprSP Parser::multiplication() {
     while (match({TokenT::STAR, TokenT::SLASH, TokenT::MOD})) {
         auto op = previous().type;
         auto rhs = unary();
+
+        if (expr->type->toString() != rhs->type->toString()) {
+            throw error(peek(), "Types must be the same.");
+        }
         expr = std::make_shared<BinaryExpr>(expr, rhs, op);
+        expr->type = rhs->type;
     }
     return expr;
 }
@@ -333,7 +356,9 @@ ExprSP Parser::unary() {
     if (match({TokenT::NOT, TokenT::MINUS})) {
         auto op = previous().type;
         auto rhs = unary();
-        return std::make_shared<UnaryExpr>(rhs, op);
+        auto expr = std::make_shared<UnaryExpr>(rhs, op);
+        expr->type = rhs->type;
+        return expr;
     }
     return memberOpExpr();
 }
@@ -359,7 +384,12 @@ ExprSP Parser::callExpr(ExprSP callee) {
         } while (match(TokenT::COMMA));
     }
     consume(TokenT::RIGHT_PAREN, "Expected ')'.");
-    return std::make_shared<CallExpr>(callee, args);
+    auto expr = std::make_shared<CallExpr>(callee, args);
+    if (!instanceof<FunctionReferenceType>(callee->type)) {
+        throw error(peek(), "Unable to deduce return type of indirect call.");
+    }
+    expr->type = downcast<FunctionReferenceType>(callee->type)->returnType;
+    return expr;
 }
 
 ExprSP Parser::primaryExpr() {

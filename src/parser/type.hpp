@@ -9,6 +9,7 @@ namespace clpl {
     struct Type {
         virtual ~Type() = default;
         virtual std::string toString() const = 0;
+        virtual bool isSigned() const = 0;
     };
 
     bool operator ==(const Type &lhs, const Type &rhs);
@@ -26,6 +27,7 @@ namespace clpl {
         }
 
         std::string toString() const override;
+        bool isSigned() const;
     };
 
     typedef std::shared_ptr<NamedType> NamedTypeSP;
@@ -35,6 +37,7 @@ namespace clpl {
         ~PointerType() override = default;
         virtual std::string toString() const = 0;
         explicit PointerType(const TypeSP &data) : dataType(data) { }
+        virtual bool isSigned() const { return false; }
     };
 
     typedef std::shared_ptr<PointerType> PointerTypeSP;
@@ -59,6 +62,7 @@ namespace clpl {
 
         FunctionReferenceType(TypeSP rt, const std::vector<TypeSP> &ats) : returnType(std::move(rt)), argTypes(ats) { }
         std::string toString() const override;
+        bool isSigned() const { return false; }
     };
 
     typedef std::shared_ptr<FunctionReferenceType> FunctionReferenceTypeSP;

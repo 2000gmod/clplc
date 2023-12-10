@@ -8,6 +8,11 @@ namespace clpl {
     struct Expr {
         TypeSP type = nullptr;
         virtual ~Expr() = default;
+        
+        explicit Expr() = default;
+        explicit Expr(const Expr &e) {
+            type = e.type;
+        }
     };
 
     typedef std::shared_ptr<Expr> ExprSP;

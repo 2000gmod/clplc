@@ -39,6 +39,7 @@ void Compiler::compile() {
     for (const auto &i : statements) {
         compileStatement(i);
     }
+    mod.dump();
 }
 
 void Compiler::compileStatement(const StmtSP &s) {
@@ -79,21 +80,48 @@ void Compiler::compileFunction(const StmtSP &s) {
 
     auto ftype = FunctionType::get(rtype, paramtypes, false);
     auto *func = Function::Create(ftype, Function::ExternalLinkage, funcs->name.identName, this->mod);
+    globals.insert({{funcs->name.identName, func}});
     if (funcs->body == nullptr) return;
 
+
+    for (size_t i = 0; i < func->arg_size(); i++) {
+        auto name = funcs->params[i].name.identName;
+        auto *val = func->getArg(i);
+        arguments.insert({{name, val}});
+    }
+
     auto *entry = BasicBlock::Create(context, "", func);
+    returnBlock = BasicBlock::Create(context, "", func);
     builder.SetInsertPoint(entry);
 
+    if (!rtype->isVoidTy()) {
+        returnValue = builder.CreateAlloca(rtype, ConstantInt::get(typemap.at("i32"), 1));
+    }
+
     isOnGlobalScope = false;
+    parent = func;
     compileBlock(funcs->body);
+    builder.CreateBr(returnBlock);
+
+    builder.SetInsertPoint(returnBlock);
+    if (!rtype->isVoidTy()) {
+        auto *val = builder.CreateLoad(rtype, returnValue);
+        builder.CreateRet(val);
+    }
+    else {
+        builder.CreateRetVoid();
+    }
+
+    parent = nullptr;
     isOnGlobalScope = true;
     localvars.clear();
+    arguments.clear();
 }
 
 void Compiler::compileVarDecl(const StmtSP &s) {
     auto vards = downcast<VarDeclStmt>(s);
 
-    auto size = ConstantInt::get(getType(vards->type), 1);
+    auto size = ConstantInt::get(builder.getInt32Ty(), 1);
     auto var = builder.CreateAlloca(getType(vards->type), size);
 
     if (isOnGlobalScope) globals.insert_or_assign(vards->name.identName, var);
@@ -106,8 +134,10 @@ void Compiler::compileVarDecl(const StmtSP &s) {
 
 void Compiler::compileReturn(const StmtSP &s) {
     auto rets = downcast<ReturnStmt>(s);
-    if (rets->value == nullptr) builder.CreateRetVoid();
-    else builder.CreateRet(compileExpression(rets->value));
+    if (rets->value != nullptr) {
+        builder.CreateStore(compileExpression(rets->value), returnValue);
+    }
+    builder.CreateBr(returnBlock);
 }
 
 void Compiler::compileIf(const StmtSP &s) {
@@ -115,9 +145,9 @@ void Compiler::compileIf(const StmtSP &s) {
     auto *condition = compileExpression(ifs->condition);
     auto *currentBlock = builder.GetInsertBlock();
 
-    auto *ifBranch = BasicBlock::Create(context);
-    auto *elseBranch = (ifs->elseBody == nullptr) ? nullptr : BasicBlock::Create(context);
-    auto *exitBlock = BasicBlock::Create(context);
+    auto *ifBranch = BasicBlock::Create(context, "", parent);
+    auto *elseBranch = (ifs->elseBody == nullptr) ? nullptr : BasicBlock::Create(context, "", parent);
+    auto *exitBlock = BasicBlock::Create(context, "", parent);
 
     builder.SetInsertPoint(currentBlock);
     builder.CreateCondBr(condition, ifBranch, (elseBranch == nullptr) ? exitBlock : elseBranch);
@@ -140,9 +170,9 @@ void Compiler::compileWhile(const StmtSP &s) {
     
     auto *currentBlock = builder.GetInsertBlock();
 
-    auto *condBlock = BasicBlock::Create(context);
-    auto *loopBlock = BasicBlock::Create(context);
-    auto *exitBlock = BasicBlock::Create(context);
+    auto *condBlock = BasicBlock::Create(context, "", parent);
+    auto *loopBlock = BasicBlock::Create(context, "", parent);
+    auto *exitBlock = BasicBlock::Create(context, "", parent);
 
     auto *prevCond = innermostCondition;
     auto *prevExit = innermostExit;
@@ -172,9 +202,9 @@ void Compiler::compileFor(const StmtSP &s) {
 
     auto *currentBlock = builder.GetInsertBlock();
 
-    auto *condBlock = BasicBlock::Create(context);
-    auto *loopBlock = BasicBlock::Create(context);
-    auto *exitBlock = BasicBlock::Create(context);
+    auto *condBlock = BasicBlock::Create(context, "", parent);
+    auto *loopBlock = BasicBlock::Create(context, "", parent);
+    auto *exitBlock = BasicBlock::Create(context, "", parent);
 
     auto *prevCond = innermostCondition;
     auto *prevExit = innermostExit;
@@ -203,33 +233,33 @@ void Compiler::compileFor(const StmtSP &s) {
 
 void Compiler::compileBreak(const StmtSP &s) {
     auto *current = builder.GetInsertBlock();
-    auto *brb = BasicBlock::Create(context);
+    auto *brb = BasicBlock::Create(context, "", parent);
     builder.SetInsertPoint(current);
 
     builder.CreateBr(brb);
     builder.SetInsertPoint(brb);
     builder.CreateBr(innermostExit);
 
-    auto *next = BasicBlock::Create(context);
+    auto *next = BasicBlock::Create(context, "", parent);
     builder.SetInsertPoint(next);
 }
 
 void Compiler::compileContinue(const StmtSP &s) {
     auto *current = builder.GetInsertBlock();
-    auto *brb = BasicBlock::Create(context);
+    auto *brb = BasicBlock::Create(context, "", parent);
     builder.SetInsertPoint(current);
 
     builder.CreateBr(brb);
     builder.SetInsertPoint(brb);
     builder.CreateBr(innermostCondition);
 
-    auto *next = BasicBlock::Create(context);
+    auto *next = BasicBlock::Create(context, "", parent);
     builder.SetInsertPoint(next);
 }
 
-Value *Compiler::compileExpression(const ExprSP &expr) {
+Value *Compiler::compileExpression(const ExprSP &expr, bool isLvalue) {
     if (instanceof<LiteralExpr>(expr)) return compileLiteral(expr);
-    else if (instanceof<IdentifierExpr>(expr)) return compileIdent(expr);
+    else if (instanceof<IdentifierExpr>(expr)) return compileIdent(expr, isLvalue);
     else if (instanceof<UnaryExpr>(expr)) return compileUnary(expr);
     else if (instanceof<BinaryExpr>(expr)) return compileBinary(expr);
     else if (instanceof<GroupExpr>(expr)) return compileGroup(expr);
@@ -260,14 +290,19 @@ Value *Compiler::compileLiteral(const ExprSP &expr) {
     return nullptr;
 }
 
-Value *Compiler::compileIdent(const ExprSP &expr) {
+Value *Compiler::compileIdent(const ExprSP &expr, bool isLvalue) {
     auto iexp = downcast<IdentifierExpr>(expr);
 
     if (localvars.contains(iexp->ident.identName)) {
-        return builder.CreateLoad(getType(iexp->type), localvars.at(iexp->ident.identName));
+        if (isLvalue) return localvars.at(iexp->ident.identName);
+        else return builder.CreateLoad(getType(iexp->type), localvars.at(iexp->ident.identName));
     }
     else if (globals.contains(iexp->ident.identName)) {
-        return builder.CreateLoad(getType(iexp->type), globals.at(iexp->ident.identName));
+        if (isLvalue) return globals.at(iexp->ident.identName);
+        else return builder.CreateLoad(getType(iexp->type), globals.at(iexp->ident.identName));
+    }
+    else if (arguments.contains(iexp->ident.identName)) {
+        return arguments.at(iexp->ident.identName);
     }
     return nullptr;
 }
@@ -280,6 +315,7 @@ Value *Compiler::compileUnary(const ExprSP &expr) {
 
     switch (uexp->op) {
         case TokenT::MINUS: {
+            if (type->isPointerTy()) throw 1;
             if (type->isIntegerTy()) return builder.CreateSub(ConstantInt::get(type, 0), subexp);
             return builder.CreateFSub(ConstantFP::get(type, 0), subexp);
         }
@@ -289,4 +325,130 @@ Value *Compiler::compileUnary(const ExprSP &expr) {
         default:
             return nullptr;
     }
+}
+
+Value *Compiler::compileBinary(const ExprSP &expr) {
+    auto bexp = downcast<BinaryExpr>(expr);
+    auto *type = getType(bexp->type);
+    bool isSigned = bexp->type->isSigned();
+
+    auto *lhs = compileExpression(bexp->left);
+    auto *rhs = compileExpression(bexp->right);
+
+    switch (bexp->op) {
+        case TokenT::PLUS: {
+            if (type->isIntOrPtrTy()) return builder.CreateAdd(lhs, rhs);
+            return builder.CreateFAdd(lhs, rhs);
+        }
+        case TokenT::MINUS: {
+            if (type->isIntOrPtrTy()) return builder.CreateSub(lhs, rhs);
+            return builder.CreateFSub(lhs, rhs);
+        }
+        case TokenT::STAR: {
+            if (type->isIntegerTy()) return builder.CreateMul(lhs, rhs);
+            return builder.CreateFMul(lhs, rhs);
+        }
+        case TokenT::SLASH: {
+            if (type->isIntegerTy()) {
+                if (isSigned) return builder.CreateSDiv(lhs, rhs);
+                return builder.CreateUDiv(lhs, rhs);
+            }
+            return builder.CreateFDiv(lhs, rhs);
+        }
+        case TokenT::MOD: {
+            if (type->isIntegerTy()) {
+                if (isSigned) return builder.CreateSRem(lhs, rhs);
+                return builder.CreateURem(lhs, rhs);
+            }
+            return builder.CreateFRem(lhs, rhs);
+        }
+        case TokenT::EQ: {
+            if (type->isIntOrPtrTy()) {
+                return builder.CreateCmp(CmpInst::Predicate::ICMP_EQ, lhs, rhs);
+            }
+            return builder.CreateFCmp(CmpInst::Predicate::FCMP_OEQ, lhs, rhs);
+        }
+        case TokenT::NOT_EQ: {
+            if (type->isIntOrPtrTy()) {
+                return builder.CreateCmp(CmpInst::Predicate::ICMP_NE, lhs, rhs);
+            }
+            return builder.CreateFCmp(CmpInst::Predicate::FCMP_ONE, lhs, rhs);
+        }
+        case TokenT::GT: {
+            if (type->isIntOrPtrTy()) {
+                if (isSigned) return builder.CreateCmp(CmpInst::Predicate::ICMP_SGT, lhs, rhs);
+                return builder.CreateCmp(CmpInst::Predicate::ICMP_UGT, lhs, rhs);
+            }
+            return builder.CreateFCmp(CmpInst::Predicate::FCMP_OGT, lhs, rhs);
+        }
+        case TokenT::GEQ: {
+            if (type->isIntOrPtrTy()) {
+                if (isSigned) return builder.CreateCmp(CmpInst::Predicate::ICMP_SGE, lhs, rhs);
+                return builder.CreateCmp(CmpInst::Predicate::ICMP_UGE, lhs, rhs);
+            }
+            return builder.CreateFCmp(CmpInst::Predicate::FCMP_OGE, lhs, rhs);
+        }
+        case TokenT::LT: {
+            if (type->isIntOrPtrTy()) {
+                if (isSigned) return builder.CreateCmp(CmpInst::Predicate::ICMP_SLT, lhs, rhs);
+                return builder.CreateCmp(CmpInst::Predicate::ICMP_ULT, lhs, rhs);
+            }
+            return builder.CreateFCmp(CmpInst::Predicate::FCMP_OLT, lhs, rhs);
+        }
+        case TokenT::LEQ: {
+            if (type->isIntOrPtrTy()) {
+                if (isSigned) return builder.CreateCmp(CmpInst::Predicate::ICMP_SLE, lhs, rhs);
+                return builder.CreateCmp(CmpInst::Predicate::ICMP_ULE, lhs, rhs);
+            }
+            return builder.CreateFCmp(CmpInst::Predicate::FCMP_OLE, lhs, rhs);
+        }
+        case TokenT::AND: {
+            return builder.CreateAnd(lhs, rhs);
+        }
+        case TokenT::OR: {
+            return builder.CreateOr(lhs, rhs);
+        }
+        default:
+            return nullptr;
+    }
+}
+
+Value *Compiler::compileGroup(const ExprSP &expr) {
+    auto gexp = downcast<GroupExpr>(expr);
+
+    return compileExpression(gexp->expr);
+}
+
+Value *Compiler::compileAssign(const ExprSP &expr) {
+    auto aexp = downcast<AssignExpr>(expr);
+    auto val = compileExpression(aexp->value);
+
+    return builder.CreateStore(val, compileExpression(aexp->target, true));
+}
+
+Value *Compiler::compileCall(const ExprSP &expr) {
+    auto cexp = downcast<CallExpr>(expr);
+    Value *callee = nullptr;
+    if (instanceof<IdentifierExpr>(cexp->callee)) {
+        for (auto &f : mod.functions()) {
+            if (f.getName() == downcast<IdentifierExpr>(cexp->callee)->ident.identName) {
+                callee = &f;
+                goto out;
+            }
+        }
+        callee = compileExpression(cexp->callee);
+    }
+    else {
+        callee = compileExpression(cexp->callee);
+    }
+    out:
+    std::vector<llvm::Value*> argvalues;
+    std::vector<llvm::Type*> argtypes;
+    for (auto &arg : cexp->args) {
+        auto *argval = compileExpression(arg);
+        argvalues.push_back(argval);
+        argtypes.push_back(getType(arg->type));
+    }
+    auto *ftype = FunctionType::get(getType(cexp->type), argtypes, false);
+    return builder.CreateCall(ftype, callee, argvalues);
 }
