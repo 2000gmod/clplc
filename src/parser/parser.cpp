@@ -89,6 +89,9 @@ StmtSP Parser::functionDecl() {
         auto ftype = std::make_shared<FunctionReferenceType>(rtype, paramTypes);
         identTypes[scopeCount].insert({name.identName, ftype});
     }
+    else if (funcs.at(name.identName)->body == nullptr) {
+        funcs.erase(name.identName);
+    }
     else throw error(name, "Function redefinition.");
 
     StmtSP fbody = nullptr;
@@ -98,7 +101,9 @@ StmtSP Parser::functionDecl() {
         scopeStack.pop_back();
     }
     else consume(TokenT::SEMICOLON, "Expected ';' after external (bodyless) function declaration.");
-    return std::make_shared<FuncDeclStmt>(rtype, name, params, fbody);
+    auto out = std::make_shared<FuncDeclStmt>(rtype, name, params, fbody);
+    funcs.insert_or_assign(out->name.identName, out);
+    return out;
 }
 
 StmtSP Parser::variableDecl() {

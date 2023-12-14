@@ -2,22 +2,42 @@
 #include "parser.hpp"
 #include "compiler.hpp"
 
-int main() {
-    auto test = R"(
-        func main() -> void {
-            var a : i32 = 0;
-            var b : i32 = 0;
+#include <sstream>
+#include <fstream>
 
-            while (a < 10) {
-                while (b < 10) {
-                    b = b + 1;
-                }
-                a = a + 1;
-            }
-        }
-    )";
-    clpl::Parser parser(test);
-    auto a = parser.parse();
-    clpl::Compiler("test", a).compile();
+int main(int argc, char **argv) {
+    if (argc == 1) {
+        std::cout << "Usage: [MODE] <INPUT_FILE> <OUTPUT_FILE>\n";
+        return 1;
+    }
+    std::vector<std::string> args;
+    for (int i = 1; i < argc; i++) {
+        args.push_back(std::string(argv[i]));
+    }
+
+    if (args[0] == "-h") {
+        std::ifstream in(args.at(1));
+        std::stringstream buf;
+        buf << in.rdbuf();
+
+        clpl::Parser parser(buf.str());
+        auto sts = parser.parse();
+
+        std::ofstream out(args.at(2));
+        out << clpl::generateDeclarations(sts);
+    }
+    else {
+        std::ifstream in(args.at(0));
+        std::stringstream buf;
+        buf << in.rdbuf();
+
+        clpl::Parser parser(buf.str());
+        auto sts = parser.parse();
+
+        clpl::Compiler compiler(args.at(1).c_str(), sts);
+        compiler.compile();
+        compiler.output(args.at(1).c_str());
+    }
+
     return 0;
 }

@@ -82,3 +82,25 @@ TypeSP Parser::getTypeFromID(const std::string &name) {
     
     throw error(previous(), "Unknown identifier.");
 }
+
+std::string clpl::generateDeclarations(const SList &l) {
+    std::string out {"// GENERATED FILE\n"};
+    for (const auto &st : l) {
+        if (instanceof<FuncDeclStmt>(st)) {
+            auto fn = downcast<FuncDeclStmt>(st);
+            out += "func " + fn->name.identName + "(";
+            for (unsigned int i = 0; i < fn->params.size(); i++) {
+                auto &param = fn->params[i];
+                out += param.name.identName + ":" + param.type->toString();
+                if (i + 1 < fn->params.size()) out += ",";
+            }
+            out += ")->" + fn->type->toString() + ";\n";
+        }
+
+        if (instanceof<VarDeclStmt>(st)) {
+            auto vdc = downcast<VarDeclStmt>(st);
+            out += "var " + vdc->name.identName + ":" + vdc->type->toString() + ";\n";
+        }
+    }
+    return out;
+}

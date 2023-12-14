@@ -27,6 +27,7 @@ struct ParseError : public std::exception {
             int scopeCount = 0;
 
             std::unordered_map<std::string, TypeSP> nTypes;
+            std::unordered_map<std::string, FuncDeclStmtSP> funcs;
             std::vector<std::unordered_map<std::string, TypeSP>> identTypes;
 
             int current = 0;
@@ -90,6 +91,8 @@ struct ParseError : public std::exception {
             bool exists(const std::string &name);
             TypeSP getTypeFromID(const std::string &name);
     };
+
+    std::string generateDeclarations(const SList &l);
 
     template <class T>
     bool Parser::isInsideScopeOf() {

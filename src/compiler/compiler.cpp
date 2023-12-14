@@ -1,5 +1,19 @@
 #include "compiler.hpp"
 
+#include "llvm/IR/Verifier.h"
+#include "llvm/Support/raw_ostream.h"
+
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/ADT/Optional.h"
+#include "llvm/MC/TargetRegistry.h"
+#include "llvm/IR/LegacyPassManager.h"
+
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Transforms/Utils.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"
+
 using namespace llvm;
 using clpl::Compiler;
 
@@ -32,7 +46,42 @@ llvm::Type *Compiler::getType(const clpl::TypeSP &type) {
 }
 
 void Compiler::output(const char *outpath) {
-    (void) outpath;
+    llvm::TargetOptions opts;
+
+    InitializeNativeTarget();
+    InitializeNativeTargetAsmPrinter();
+
+    auto fpm = std::make_unique<legacy::FunctionPassManager>(&mod);
+    fpm->add(llvm::createBasicAAWrapperPass());
+    fpm->add(llvm::createPromoteMemoryToRegisterPass());
+    fpm->add(llvm::createInstructionCombiningPass());
+    fpm->add(llvm::createReassociatePass());
+    fpm->add(llvm::createNewGVNPass());
+    fpm->add(llvm::createCFGSimplificationPass());
+    fpm->doInitialization();
+
+    auto targetTriple = LLVMGetDefaultTargetTriple();
+    mod.setTargetTriple(targetTriple);
+
+    std::string error;
+    auto target = TargetRegistry::lookupTarget(targetTriple, error);
+
+    auto CPU = "generic";
+    auto features = "";
+
+    auto RM = Optional<Reloc::Model>();
+    auto targetMachine = target->createTargetMachine(targetTriple, CPU, features, opts, RM);
+    mod.setDataLayout(targetMachine->createDataLayout());
+
+    std::error_code EC;
+    raw_fd_ostream dest(outpath, EC);
+
+    legacy::PassManager pass;
+
+    targetMachine->addPassesToEmitFile(pass, dest, nullptr, CGFT_ObjectFile);
+
+    pass.run(mod);
+    dest.flush();
 }
 
 void Compiler::compile() {
@@ -281,7 +330,13 @@ Value *Compiler::compileLiteral(const ExprSP &expr) {
         case TokenT::DOUBLE_LIT:
             return ConstantFP::get(getType(lexp->type), lexp->val.doubleValue);
         case TokenT::STRING_LIT: {
-            auto *gv = new GlobalVariable(getType(lexp->type), true, GlobalValue::ExternalLinkage);
+            std::vector<llvm::Constant*> chars (lexp->val.strValue.size() + 1);
+            for (unsigned int i = 0; i < lexp->val.strValue.size(); i++) {
+                chars[i] = ConstantInt::get(builder.getInt8Ty(), lexp->val.strValue[i]);
+            }
+            chars[lexp->val.strValue.size()] = ConstantInt::get(builder.getInt8Ty(), '\0');
+            auto init = ConstantArray::get(ArrayType::get(builder.getInt8Ty(), chars.size()), chars);
+            auto *gv = new GlobalVariable(mod, init->getType(), true, GlobalValue::ExternalLinkage, init);
             return ConstantExpr::getBitCast(gv, getType(lexp->type));
         }
         default:
